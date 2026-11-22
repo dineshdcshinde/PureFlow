@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "YT Ad Skipper",
+  "version": "1.0.0",
+  "description": "Blocks, hides and skips YouTube ads.",
+  "permissions": ["declarativeNetRequest", "scripting"],
+  "host_permissions": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      { "id": "ad_rules", "enabled": true, "path": "rules.json" }
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
+      "js": ["content/overlay.js", "content/ads.js", "content/main.js"],
+      "css": ["hide.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    }
+  ]
+}

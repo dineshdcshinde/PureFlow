@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PureFlow</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="hello">
+      <h1 id="greeting">Hello</h1>
+      <form id="name-form" class="name-form" hidden>
+        <label class="sr-only" for="name-input">Your name</label>
+        <input id="name-input" class="name-input" type="text" maxlength="24"
+               placeholder="Type your name" autocomplete="given-name" />
+        <div class="name-actions">
+          <button type="submit" id="name-save" class="btn">Save</button>
+          <button type="button" id="name-cancel" class="link">Cancel</button>
+        </div>
+      </form>
+      <p id="tagline" class="muted">&nbsp;</p>
+    </div>
+    <label class="switch" title="Turn on or off">
+      <input type="checkbox" id="enabled" data-setting="enabled" />
+      <span class="track" aria-hidden="true"></span>
+      <span class="sr-only">Turn PureFlow on or off</span>
+    </label>
+  </header>
+
+  <div class="notice" id="update-notice" hidden>
+    <span id="notice-text">Refresh this tab to finish updating PureFlow.</span>
+    <button type="button" id="refresh-tab">Refresh</button>
+  </div>
+
+  <main id="main">
+    <section class="stats" aria-label="Your stats">
+      <p><strong id="ads-blocked">0</strong> <span class="muted">ads blocked</span></p>
+      <p><strong id="time-saved">0 min</strong> <span class="muted">saved</span></p>
+    </section>
+
+    <section class="group" id="creator-card" hidden>
+      <label class="row">
+        <span>Allow ads on <strong id="creator-name">this channel</strong>
+          <small class="hint">Supports the creator. Starts from the next video.</small></span>
+        <span class="switch"><input type="checkbox" id="allow-channel" /><span class="track"></span></span>
+      </label>
+    </section>
+
+    <section class="group" aria-labelledby="focus-title">
+      <h2 id="focus-title">Focus</h2>
+      <label class="row"><span>Hide Shorts</span>
+        <span class="switch"><input type="checkbox" data-setting="hideShorts" /><span class="track"></span></span></label>
+      <label class="row"><span>Hide comments</span>
+        <span class="switch"><input type="checkbox" data-setting="hideComments" /><span class="track"></span></span></label>
+      <label class="row"><span>Hide recommendations</span>
+        <span class="switch"><input type="checkbox" data-setting="hideRelated" /><span class="track"></span></span></label>
+      <label class="row"><span>Hide end-of-video suggestions</span>
+        <span class="switch"><input type="checkbox" data-setting="hideEndScreens" /><span class="track"></span></span></label>
+    </section>
+
+    <section class="group" aria-labelledby="playback-title">
+      <h2 id="playback-title">Playback</h2>
+      <div class="row static"><span>Speed</span></div>
+      <div class="chips" role="radiogroup" aria-label="Playback speed" id="speed-chips">
+        <button type="button" role="radio" data-speed="0">Off</button>
+        <button type="button" role="radio" data-speed="1">1×</button>
+        <button type="button" role="radio" data-speed="1.25">1.25</button>
+        <button type="button" role="radio" data-speed="1.5">1.5</button>
+        <button type="button" role="radio" data-speed="2">2×</button>
+        <button type="button" role="radio" data-speed="2.5">2.5</button>
+        <button type="button" role="radio" data-speed="3">3×</button>
+      </div>
+      <label class="row"><span>Skip sponsor parts
+          <small class="hint">Off until you turn it on. Sends only a 4-character code (never the video) to
+            <a href="https://sponsor.ajay.app/" target="_blank" rel="noopener">SponsorBlock</a>.
+            Data: CC BY-NC-SA 4.0.</small></span>
+        <span class="switch"><input type="checkbox" data-setting="sponsorSkip" /><span class="track"></span></span></label>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="brand"><img src="../icons/icon-16.png" alt="" width="14" height="14" /> <span id="app-name">PureFlow</span></span>
+    <span class="links">
+      <button type="button" id="edit-name" class="link">Add your name</button>
+      <span class="dot" aria-hidden="true">·</span>
+      <button type="button" id="reset-stats" class="link">Reset stats</button>
+    </span>
+  </footer>
+  <p class="disclaimer" id="disclaimer"></p>
+
+  <script src="../brand.js"></script>
+  <script src="../content/settings.js"></script>
+  <script src="greeting.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

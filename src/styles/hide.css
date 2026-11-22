@@ -1,0 +1,69 @@
+/*
+ * hide.css
+ * Layer 2: cosmetic filtering.
+ *
+ * Every rule starts with html[data-yas="on"]. content/main.js sets that flag
+ * while the extension is on and removes it when you turn it off, so these
+ * rules switch off instantly, even in tabs that are already open.
+ */
+
+/* Ad boxes around the site: home feed, search, sidebar, banners. */
+html[data-yas="on"] #masthead-ad,
+html[data-yas="on"] #player-ads,
+html[data-yas="on"] ytd-ad-slot-renderer,
+html[data-yas="on"] ytd-in-feed-ad-layout-renderer,
+html[data-yas="on"] ytd-banner-promo-renderer,
+html[data-yas="on"] ytd-statement-banner-renderer,
+html[data-yas="on"] ytd-promoted-sparkles-web-renderer,
+html[data-yas="on"] ytd-promoted-video-renderer,
+html[data-yas="on"] ytd-display-ad-renderer,
+html[data-yas="on"] ytd-companion-slot-renderer,
+html[data-yas="on"] ytd-action-companion-ad-renderer,
+html[data-yas="on"] ytd-merch-shelf-renderer,
+html[data-yas="on"] ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
+html[data-yas="on"] ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"],
+html[data-yas="on"] .ytp-ad-overlay-container,
+html[data-yas="on"] .ytp-ad-image-overlay {
+  display: none !important;
+}
+
+/* While an ad is in the player, keep it invisible. Our message covers the player.
+   Not on channels you chose to support (data-yas-allowed-now). */
+html[data-yas="on"]:not([data-yas-allowed-now]) #movie_player.ad-showing video,
+html[data-yas="on"]:not([data-yas-allowed-now]) #movie_player.ad-showing .video-ads {
+  opacity: 0 !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Focus mode (V2). content/features/focus.js turns each one on from the popup.
+ * ------------------------------------------------------------------------- */
+
+/* Hide Shorts: shelves, sidebar links, Shorts results in lists */
+html[data-yas="on"][data-yas-hide-shorts] ytd-reel-shelf-renderer,
+html[data-yas="on"][data-yas-hide-shorts] ytd-rich-shelf-renderer[is-shorts],
+html[data-yas="on"][data-yas-hide-shorts] ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]),
+html[data-yas="on"][data-yas-hide-shorts] grid-shelf-view-model:has(ytm-shorts-lockup-view-model),
+html[data-yas="on"][data-yas-hide-shorts] ytd-guide-entry-renderer:has(a[title="Shorts"]),
+html[data-yas="on"][data-yas-hide-shorts] ytd-mini-guide-entry-renderer[aria-label="Shorts"],
+html[data-yas="on"][data-yas-hide-shorts] ytd-video-renderer:has(a[href^="/shorts/"]),
+html[data-yas="on"][data-yas-hide-shorts] ytd-rich-item-renderer:has(a[href^="/shorts/"]) {
+  display: none !important;
+}
+
+/* Hide comments */
+html[data-yas="on"][data-yas-hide-comments] ytd-comments#comments {
+  display: none !important;
+}
+
+/* Hide recommendations next to the video */
+html[data-yas="on"][data-yas-hide-related] #secondary #related,
+html[data-yas="on"][data-yas-hide-related] ytd-watch-next-secondary-results-renderer {
+  display: none !important;
+}
+
+/* Hide end screens (the video cards that pop up in the last seconds) */
+html[data-yas="on"][data-yas-hide-endscreens] .ytp-ce-element,
+html[data-yas="on"][data-yas-hide-endscreens] .ytp-endscreen-content,
+html[data-yas="on"][data-yas-hide-endscreens] .html5-endscreen {
+  display: none !important;
+}

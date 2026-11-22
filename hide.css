@@ -1,0 +1,34 @@
+/*
+ * hide.css
+ * Layer 2: cosmetic filtering.
+ *
+ * Every rule starts with html[data-yas="on"]. content/main.js sets that flag
+ * while the extension is on and removes it when you turn it off, so these
+ * rules switch off instantly, even in tabs that are already open.
+ */
+
+/* Ad boxes around the site: home feed, search, sidebar, banners. */
+html[data-yas="on"] #masthead-ad,
+html[data-yas="on"] #player-ads,
+html[data-yas="on"] ytd-ad-slot-renderer,
+html[data-yas="on"] ytd-in-feed-ad-layout-renderer,
+html[data-yas="on"] ytd-banner-promo-renderer,
+html[data-yas="on"] ytd-statement-banner-renderer,
+html[data-yas="on"] ytd-promoted-sparkles-web-renderer,
+html[data-yas="on"] ytd-promoted-video-renderer,
+html[data-yas="on"] ytd-display-ad-renderer,
+html[data-yas="on"] ytd-companion-slot-renderer,
+html[data-yas="on"] ytd-action-companion-ad-renderer,
+html[data-yas="on"] ytd-merch-shelf-renderer,
+html[data-yas="on"] ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
+html[data-yas="on"] ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"],
+html[data-yas="on"] .ytp-ad-overlay-container,
+html[data-yas="on"] .ytp-ad-image-overlay {
+  display: none !important;
+}
+
+/* While an ad is in the player, keep it invisible. Our message covers the player. */
+html[data-yas="on"] #movie_player.ad-showing video,
+html[data-yas="on"] #movie_player.ad-showing .video-ads {
+  opacity: 0 !important;
+}

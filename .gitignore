@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output (rebuild with: npm run build)
+dist/
+
+# Store upload packages
+*.zip
+*.crx
+
+# Extension signing keys: never share these
+*.pem
+
+# Chrome generated files
+_metadata/
+
+# Local git backup
+history.bundle
+*.bundle
+
+# Secrets and local settings
+.env
+.env.*
+.claude/settings.local.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

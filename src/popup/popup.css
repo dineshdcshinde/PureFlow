@@ -1,0 +1,105 @@
+/* popup.css: quiet and minimal. Neutral greys, one accent, thin dividers. */
+:root {
+  --bg: #ffffff;
+  --text: #16181b;
+  --muted: #6b7280;
+  --line: #ececef;
+  --soft: #f5f5f7;
+  --accent: #0f9f8f;
+  --off: #d4d4d8;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181b;
+    --text: #ededef;
+    --muted: #9a9ca3;
+    --line: #26282c;
+    --soft: #212327;
+    --accent: #2cc5b3;
+    --off: #3a3c41;
+  }
+}
+
+* { box-sizing: border-box; }
+/* Anything marked hidden stays hidden, even if its own style sets display (e.g. .notice) */
+[hidden] { display: none !important; }
+body {
+  width: 300px;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: 11px; font-weight: 600; margin: 0 0 2px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+p { margin: 0; }
+strong { font-weight: 600; }
+.muted { color: var(--muted); }
+.hint { display: block; color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+.hint a { color: inherit; }
+
+/* Header */
+.top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 16px 12px; }
+.hello { min-width: 0; }
+.name-input {
+  width: 100%; font: inherit; font-size: 15px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--soft); color: var(--text);
+}
+.name-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+.name-actions { display: flex; align-items: center; gap: 10px; }
+.btn { font: inherit; font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 6px;
+  border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+.btn:hover { filter: brightness(1.06); }
+.name-input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+
+/* "Refresh this tab" note: shown only when the tab runs older PureFlow code */
+.notice { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 0 16px 12px; padding: 8px 10px; border-radius: 8px; background: var(--soft); font-size: 12px; }
+.notice button:disabled { opacity: .6; cursor: default; }
+.notice button { font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px;
+  border: 0; background: var(--text); color: var(--bg); cursor: pointer; }
+
+/* Stats: one quiet line */
+.stats { display: flex; gap: 16px; padding: 0 16px 12px; border-bottom: 1px solid var(--line); }
+.stats strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+
+/* Groups and rows */
+main.paused { opacity: .4; pointer-events: none; }
+.group { padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; cursor: pointer; }
+.row.static { cursor: default; padding-bottom: 4px; }
+
+/* Speed chips: one tap, applies right away */
+.chips { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding-bottom: 6px; }
+.chips button {
+  font: inherit; font-size: 12px; padding: 5px 0; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--text);
+}
+.chips button:hover { background: var(--soft); }
+.chips button[aria-checked="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+.chips button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Switch: a real checkbox underneath, so keyboard and screen readers work */
+.switch { position: relative; display: inline-block; flex: none; width: 32px; height: 18px; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.track { position: absolute; inset: 0; border-radius: 9px; background: var(--off); transition: background .15s; }
+.track::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  border-radius: 50%; background: #fff; transition: transform .15s;
+}
+.switch input:checked + .track { background: var(--accent); }
+.switch input:checked + .track::after { transform: translateX(14px); }
+.switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Footer */
+.footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 4px; }
+.brand { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+.brand img { border-radius: 3px; }
+.links { display: inline-flex; align-items: center; gap: 6px; }
+.link { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; }
+.link:hover { color: var(--text); }
+.dot { color: var(--muted); }
+.disclaimer { padding: 0 16px 12px; color: var(--muted); font-size: 10.5px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
