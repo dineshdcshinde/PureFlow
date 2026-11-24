@@ -3,7 +3,7 @@
 **Watch videos without ads and without distractions.**
 Free, light and private. One code base for **Chrome**, **Edge** and **Firefox**.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Browsers](https://img.shields.io/badge/browsers-Chrome%20%7C%20Edge%20%7C%20Firefox-green)
 ![Privacy](https://img.shields.io/badge/data%20collected-none-brightgreen)
 
@@ -15,8 +15,15 @@ Free, light and private. One code base for **Chrome**, **Edge** and **Firefox**.
 |---|---|
 | **Ad blocking** | Blocks video, banner and overlay ads before they load |
 | **Ad skip backup** | If an ad still gets in, it is muted and skipped at once |
+| **No nagging popups** | Hides YouTube's "Experiencing interruptions?" popup (normal popups like "Saved to Watch later" still show) |
 | **Focus mode** | Hide Shorts, comments, recommendations and end screens, each with its own switch |
 | **Playback speed** | Pick any speed from 1x to 3x, applied to every video |
+| **Default quality** | Every video starts at the quality you pick, from 144p up to 8K. The popup only shows the qualities the open video has |
+| **Play next right away** | No black wait between videos: skips YouTube's "Up next in 8" countdown when Autoplay is on |
+| **Loop part of a video** | Mark a start and an end, and that part repeats |
+| **Screenshot** | Save the frame on screen as a PNG, in one click |
+| **Keyboard shortcuts** | `Shift+S` screenshot, `Shift+L` loop |
+| **Mouse wheel volume** *(optional)* | Scroll over the video to turn it up or down |
 | **Sponsor skip** *(optional)* | Jumps past "this video is sponsored by…" parts, using SponsorBlock data |
 | **Support creators** | Allow ads on the channels you choose |
 | **Stats** | See how many ads were blocked and how much time you saved |
@@ -27,7 +34,7 @@ Free, light and private. One code base for **Chrome**, **Edge** and **Firefox**.
 
 ## Roadmap
 
-**Released: version 1.0.0**
+**Version 1.0.0**
 
 - [x] Ad blocking and ad skip
 - [x] Popup with on/off switch and stats
@@ -37,13 +44,14 @@ Free, light and private. One code base for **Chrome**, **Edge** and **Firefox**.
 - [x] Support creators
 - [x] Chrome, Edge and Firefox builds
 
-**Coming next**
+**Version 2.0.0**
 
-- [ ] Default video quality
-- [ ] Change volume with the mouse wheel
-- [ ] Save a screenshot of a video frame
-- [ ] Keyboard shortcuts
-- [ ] Loop part of a video
+- [x] Default video quality
+- [x] Change volume with the mouse wheel
+- [x] Save a screenshot of a video frame
+- [x] Keyboard shortcuts
+- [x] Loop part of a video
+- [x] Play the next video right away (fixes the black screen between videos)
 
 Have an idea? [Open an issue](../../issues) and tell us.
 
@@ -56,11 +64,14 @@ Have an idea? [Open an issue](../../issues) and tell us.
 3. Open any video. Ads are blocked straight away, nothing to set up.
 4. Click the PureFlow icon to:
    - turn focus mode items on or off
-   - set your playback speed
-   - turn on sponsor skip
+   - set your playback speed and video quality
+   - turn on sponsor skip or mouse wheel volume
+   - turn the player buttons and keyboard shortcuts on or off
    - add your name for the greeting
 5. **To support a creator:** open one of their videos, click the PureFlow icon and switch on **"Allow ads on this channel"**.
 6. **To take a break:** use the switch at the top of the popup to pause PureFlow.
+7. **Screenshot:** click the camera button on the player bar, or press `Shift+S`. The picture goes to your Downloads folder.
+8. **Loop a part:** click the loop button (or press `Shift+L`) where the part starts, again where it ends. Press a third time to stop.
 
 ---
 
@@ -89,11 +100,13 @@ platforms/
 src/                    THE ENGINE: same code for every browser
   background.js         Adds scripts to open tabs, per-tab allow rules for creators
   inject.js             Removes ad plans from the page data (page world)
+  bridge.js             Asks the player for quality and volume changes (page world)
   content/
     settings.js         Saved settings and stats (shared with the popup)
     overlay.js          Messages on the player
     ads.js              Detect and skip an ad already in the player
-    features/           One file per feature (creators, focus, speed, sponsor)
+    features/           One file per feature (creators, focus, speed, quality, sponsor, notices,
+                        autonext, loop, screenshot, controls)
     main.js             Coordinator: decides when things happen
   styles/hide.css       All hiding, switched by attributes on <html>
   rules/ads.json        Blocked ad servers
@@ -144,6 +157,7 @@ The engine in `src/` does not change.
 - No account, no tracking, no analytics.
 - Your settings and stats stay in your browser.
 - Your name, if you add it, never leaves your computer.
+- Screenshots are made on your computer and saved to your Downloads folder. Nothing is uploaded.
 - Sponsor skip is **off by default**. When on, it sends only the first 4 characters of a hash of the video id to SponsorBlock, never the video id itself.
 
 Full policy: [docs/privacy.html](docs/privacy.html)
@@ -170,6 +184,8 @@ I read every issue and reply as soon as I can.
 | An ad still shows | Reload the page. If it keeps happening, open an issue with the video link |
 | The video is black or stuck | Pause PureFlow with the popup switch, reload, then switch it back on |
 | A setting doesn't apply | Reload the video page after changing it |
+| Black screen for a few seconds between videos | Make sure **Play next video right away** is on in the popup (it only works when YouTube's Autoplay is on) |
+| A shortcut does nothing | Click on the video first, so the page (not a text box) has focus |
 | Nothing works after an update | Open your browser's extensions page and click reload on PureFlow |
 
 ---

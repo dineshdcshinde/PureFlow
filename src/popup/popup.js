@@ -14,6 +14,9 @@
   let turn = 0;        // how many times the popup was opened; rotates the greeting message
   let activeTab = null; // the YouTube tab this popup was opened on (if any)
   let refreshing = false; // true from pressing Refresh until the tab has loaded again
+  let videoQualities = []; // qualities the open video has (empty = unknown: show all)
+  const QUALITY_NAMES = { highres: "8K", hd2880: "5K", hd2160: "4K", hd1440: "1440p", hd1080: "1080p", hd720: "720p", large: "480p",
+    medium: "360p", small: "240p", tiny: "144p" };
   const VERSION = chrome.runtime.getManifest?.().version;
 
   // ---------------------------------------------------------------------------
@@ -45,8 +48,33 @@
     for (const chip of document.querySelectorAll("[data-speed]")) {
       chip.setAttribute("aria-checked", String(Number(chip.dataset.speed) === Number(next.speed)));
     }
+    for (const chip of document.querySelectorAll("[data-quality]")) {
+      chip.setAttribute("aria-checked", String(chip.dataset.quality === (next.quality || "")));
+    }
+    renderQualityChoices();
     $("main").classList.toggle("paused", !next.enabled);
     renderGreeting();
+  }
+
+  /**
+   * Only offer qualities the open video really has: a 1080p video shows no 1440p or 4K.
+   * Without a video (or before the player is ready) every choice is shown.
+   */
+  function renderQualityChoices() {
+    const has = videoQualities;
+    const note = $("quality-note");
+    for (const chip of document.querySelectorAll("[data-quality]")) {
+      chip.hidden = Boolean(has.length && chip.dataset.quality && !has.includes(chip.dataset.quality));
+    }
+    // Your saved choice is higher than this video goes: say what it plays at instead.
+    const picked = current.quality || "";
+    const best = has.find((q) => QUALITY_NAMES[q]);
+    if (has.length && picked && !has.includes(picked) && best) {
+      note.textContent = `Your default is ${QUALITY_NAMES[picked] || picked}. This video plays at its best: ${QUALITY_NAMES[best]}.`;
+      note.hidden = false;
+    } else {
+      note.hidden = true;
+    }
   }
 
   function renderStats(counts) {
@@ -76,6 +104,8 @@
     const { tab, status } = await askActiveTab();
     activeTab = tab;
     if (!refreshing) $("update-notice").hidden = !(await needsRefresh(tab, status));
+    videoQualities = Array.isArray(status?.qualities) ? status.qualities : [];
+    renderQualityChoices();
     const channel = status?.onWatchPage ? status.channel : null;
     if (!channel) return;
     $("creator-name").textContent = channel.author || "this channel";
@@ -122,6 +152,14 @@
     const value = Number(chip.dataset.speed);
     sendToTab({ type: "set-speed", speed: value }); // instant, on the open video
     settings.save({ speed: value });                 // remembered for the next videos
+  }
+
+  /** Same as speed: one tap changes the open video at once, and is remembered. */
+  function onQualityClick(event) {
+    const chip = event.target.closest("[data-quality]");
+    if (!chip) return;
+    sendToTab({ type: "set-quality", quality: chip.dataset.quality }); // instant, on the open video
+    settings.save({ quality: chip.dataset.quality });                 // remembered for the next videos
   }
 
   /** "Add your name": swap the greeting for a text box with Save and Cancel. */
@@ -178,6 +216,7 @@
 
     document.addEventListener("change", onSwitchChange);
     $("speed-chips").addEventListener("click", onSpeedClick);
+    $("quality-chips").addEventListener("click", onQualityClick);
     $("edit-name").addEventListener("click", startNameEdit);
     $("name-form").addEventListener("submit", (e) => { e.preventDefault(); finishNameEdit(true); }); // Save button or Enter
     $("name-cancel").addEventListener("click", () => finishNameEdit(false));

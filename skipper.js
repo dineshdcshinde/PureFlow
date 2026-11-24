@@ -111,7 +111,6 @@
     inAd = true;
     adStartedAt = Date.now();
     stopLoadCheck();
-    console.log("[YT Ad Skipper] ad found");
     skipAd(player);
     adTimer = setInterval(() => skipAd(player), 100);
   }
@@ -216,7 +215,6 @@
     // Only switch the tab "off" if no newer copy has taken over.
     if (isOwner()) {
       root.removeAttribute("data-yt-ad-skipper");
-      console.log("[YT Ad Skipper] turned off in this tab");
     }
   }
 

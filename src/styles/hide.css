@@ -67,3 +67,18 @@ html[data-yas="on"][data-yas-hide-endscreens] .ytp-endscreen-content,
 html[data-yas="on"][data-yas-hide-endscreens] .html5-endscreen {
   display: none !important;
 }
+
+/* ---------------------------------------------------------------------------
+ * Player buttons (screenshot, loop). Added by content/features/controls.js.
+ * ------------------------------------------------------------------------- */
+html:not([data-yas="on"]) .yas-player-btn { display: none !important; }
+.yas-player-btn svg { pointer-events: none; }
+/* Loop: A is set and we wait for B (dim blue), or looping (blue) */
+.yas-player-btn[data-yas-loop="start"] { color: #3ea6ff; opacity: .7; }
+.yas-player-btn[data-yas-loop="on"] { color: #3ea6ff; }
+
+/* YouTube's "Experiencing interruptions?" popup. content/features/notices.js marks it
+   only while it shows that message, so normal popups ("Saved to Watch later") still show. */
+html[data-yas="on"] [data-yas-hidden-notice] {
+  display: none !important;
+}

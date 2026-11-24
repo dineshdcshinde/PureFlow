@@ -13,15 +13,17 @@
  * can sit on black for a long time. In both cases we reload the video once, clean,
  * which takes 1 to 2 seconds instead of waiting out YouTube's timer.
  *
- * V2 features (each in content/features/, wired up here):
- *   focus mode, default speed, sponsor skip, support creators, stats.
+ * Features (each in content/features/, wired up here):
+ *   focus mode, default speed and quality, sponsor skip, support creators, stats,
+ *   play next right away, loop, screenshot, wheel volume, shortcuts, player buttons.
  *
  * Also the on/off switch for this tab: sets <html data-yas="on">, which hide.css and
  * inject.js both read, and cleans everything up when the extension is turned off.
  */
 (() => {
   const YAS = globalThis.YAS;
-  const { overlay, ads, settings, stats, focus, speed, sponsor, creators } = YAS;
+  const { overlay, ads, settings, stats, focus, speed, sponsor, creators,
+    quality, autonext, loop, screenshot, controls, notices } = YAS;
 
   // ---------------------------------------------------------------------------
   // Config
@@ -37,6 +39,15 @@
     backOnTitle: `${APP} is back on`,
     backOnDetail: "Cleaning up an ad from earlier, back in a sec",
     sponsorSkipped: "Sponsor skipped",
+    screenshotSaved: "Screenshot saved to Downloads",
+    screenshotFailed: "Can't take a screenshot of this video",
+    volume: (v) => (v === 0 ? "Muted" : `Volume ${v}%`),
+    quality: (q) => {
+      if (q.failed) return "Can't change the quality of this video";
+      if (q.diff === "lower") return `Quality ${q.name} (highest for this video)`;
+      if (q.diff === "higher") return `Quality ${q.name} (lowest for this video)`;
+      return `Quality ${q.name}`;
+    },
   };
   const AVERAGE_AD_SECONDS = 15;        // used to estimate "time saved" for ads removed before loading
   const AD_TICK_MS = 100;               // how often we retry skipping during an ad
@@ -235,6 +246,8 @@
     state.player = player;
     state.playerObserver = new MutationObserver(onPlayerClassChange);
     state.playerObserver.observe(player, { attributes: true, attributeFilter: ["class"] });
+    controls.attach(player);
+    updateButtons();
     onPlayerClassChange();
     return true;
   }
@@ -249,6 +262,7 @@
       state.yourVideoSource = ads.sourceOf(event.target);
       state.yourVideo = { id: currentVideoId(), time: event.target.currentTime };
     }
+    if (isEnabled()) loop.check(event.target);
     if (isEnabled() && state.settings.sponsorSkip) {
       const skipped = sponsor.check(event.target);
       if (skipped > 0) {
@@ -263,6 +277,61 @@
     const player = state.player;
     if (!player || !player.contains(event.target) || !isEnabled()) return;
     speed.onPlaying(event.target, Boolean(state.ad));
+    quality.onPlaying(Boolean(state.ad));
+    if (state.settings.playerButtons) controls.addButtons(player); // the bar exists by now
+  }
+
+  /** Your video ended: start the next one right away (only if YouTube's Autoplay is on). */
+  function onEnded(event) {
+    const player = state.player;
+    if (!player || !player.contains(event.target) || !isEnabled()) return;
+    if (loop.status() === "on") return loop.check(event.target); // looping: back to the start, keep playing
+    if (!state.settings.instantNext || state.ad || ads.isPlaying(player) || !onWatchPage()) return;
+    autonext.onEnded(player, event.target);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tools: screenshot, loop, volume (from shortcuts, wheel or player buttons)
+  // ---------------------------------------------------------------------------
+  /** May the tools act now? PureFlow on, a video open, no ad. Otherwise keys and wheel stay YouTube's. */
+  function canAct() {
+    const player = state.player;
+    return Boolean(isEnabled() && onWatchPage() && player && videoOf(player) && !state.ad && !ads.isPlaying(player));
+  }
+
+  function onAction(action, step) {
+    const player = state.player;
+    const video = videoOf(player);
+    if (!canAct()) return;
+    if (action === "screenshot") {
+      screenshot.save(video).then((ok) => overlay.toast(player, ok ? TEXT.screenshotSaved : TEXT.screenshotFailed));
+    } else if (action === "loop") {
+      overlay.toast(player, loop.step(video));
+      controls.showLoop(loop.status());
+    } else if (action === "volume") {
+      document.dispatchEvent(new CustomEvent("yas:cmd", { detail: JSON.stringify({ cmd: "volume", step }) }));
+    }
+  }
+
+  /** bridge.js changed the volume: say so. */
+  function onVolume(event) {
+    if (state.player) overlay.toast(state.player, TEXT.volume(Number(event.detail)));
+  }
+
+  /** bridge.js set the quality you tapped in the popup: say so. */
+  function onQuality(event) {
+    try {
+      if (state.player) overlay.toast(state.player, TEXT.quality(JSON.parse(event.detail)));
+    } catch (e) { /* bad data: ignore */ }
+  }
+
+  function updateButtons() {
+    if (isEnabled() && state.settings.playerButtons) {
+      controls.addButtons(state.player);
+      controls.showLoop(loop.status());
+    } else {
+      controls.removeButtons();
+    }
   }
 
   /** inject.js removed ad breaks before they loaded: count them. */
@@ -273,6 +342,9 @@
 
   function onNavigate() {
     attachToPlayer();
+    autonext.stop();
+    loop.clear(); // a loop belongs to one video
+    updateButtons();
     if (isEnabled() && state.settings.sponsorSkip) sponsor.load(currentVideoId());
   }
 
@@ -284,15 +356,22 @@
     if (next.enabled) {
       root.dataset.yas = "on";
       focus.apply(next);
+      notices.start(); // hide the "Experiencing interruptions?" popup
     } else {
       // Paused from the popup: YouTube goes back to normal in this tab.
       endAd();
       stopLateStartWatch();
       overlay.hide();
       focus.clear();
+      notices.stop();
       delete root.dataset.yas;
     }
     speed.setSpeed(next.speed, videoOf(state.player), Boolean(state.ad)); // applies right away
+    if (next.enabled) quality.setQuality(next.quality, Boolean(state.ad));
+    // Paused: shortcuts and the wheel go back to YouTube (and the page) completely.
+    controls.configure({ shortcuts: next.enabled && next.shortcuts, wheelVolume: next.enabled && next.wheelVolume });
+    updateButtons();
+    if (!next.enabled) { autonext.stop(); loop.clear(); }
     creators.setAllowed(next.allowedChannels);
     if (next.enabled && next.sponsorSkip) sponsor.load(currentVideoId());
     onPlayerClassChange(); // just switched on with an ad already playing? stop it now
@@ -303,11 +382,17 @@
   function onMessage(message, sender, reply) {
     if (message?.type === "get-status") {
       // version lets the popup spot a tab still running older PureFlow code
-      reply({ onWatchPage: onWatchPage(), channel: creators.current(), version: chrome.runtime.getManifest().version });
+      reply({ onWatchPage: onWatchPage(), channel: creators.current(), version: chrome.runtime.getManifest().version,
+        qualities: onWatchPage() && isEnabled() ? quality.available() : [] }); // popup hides what this video lacks
     }
     if (message?.type === "set-speed") {
       // You tapped a speed: apply it to the open video right away.
       speed.setSpeed(message.speed, videoOf(state.player), Boolean(state.ad), { now: true });
+      reply({ ok: true });
+    }
+    if (message?.type === "set-quality") {
+      // You tapped a quality: switch the open video right away, like speed.
+      if (isEnabled()) quality.setQuality(message.quality, Boolean(state.ad), { now: true });
       reply({ ok: true });
     }
   }
@@ -328,6 +413,10 @@
     document.addEventListener("timeupdate", onTimeUpdate, true);
     document.addEventListener("playing", onPlaying, true);
     document.addEventListener("yas:ads-removed", onAdsRemoved);
+    document.addEventListener("ended", onEnded, true);
+    document.addEventListener("yas:volume", onVolume);
+    document.addEventListener("yas:quality", onQuality);
+    controls.start(onAction, canAct);
     chrome.runtime.onMessage.addListener(onMessage);
     creators.start(onPlayerClassChange); // a channel stops being allowed mid-ad: stop it now
     settings.load().then(applySettings).catch(() => {});
@@ -347,8 +436,15 @@
     document.removeEventListener("timeupdate", onTimeUpdate, true);
     document.removeEventListener("playing", onPlaying, true);
     document.removeEventListener("yas:ads-removed", onAdsRemoved);
+    document.removeEventListener("ended", onEnded, true);
+    document.removeEventListener("yas:volume", onVolume);
+    document.removeEventListener("yas:quality", onQuality);
+    autonext.stop();
+    controls.stop();
     try { chrome.runtime.onMessage.removeListener(onMessage); } catch (e) { /* already gone */ }
     if (isOwner()) {
+      notices.stop();
+      controls.removeButtons(); // only the owner: a newer copy may have just added its own
       overlay.destroy();
       creators.stop();
       focus.clear();

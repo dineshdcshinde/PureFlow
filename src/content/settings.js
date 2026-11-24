@@ -3,7 +3,8 @@
  * The one place that reads and writes saved data. Shared by content scripts and the popup.
  *
  *   settings (chrome.storage.sync, follows you across your browsers):
- *     enabled, focus toggles, default speed, sponsor skip, allowed channels
+ *     enabled, focus toggles, default speed and quality, sponsor skip, allowed channels,
+ *     play next right away, wheel volume, shortcuts, player buttons
  *   stats (chrome.storage.local, this computer only):
  *     adsBlocked, secondsSaved
  *
@@ -20,6 +21,11 @@
     hideEndScreens: false,
     speed: 0,              // 0 = leave YouTube's speed alone
     sponsorSkip: false,    // opt-in: asks SponsorBlock for sponsor segments
+    quality: "",           // "" = Auto; else "hd1080", "hd720"... (best available up to that)
+    instantNext: true,     // skip YouTube's "Up next in 8" wait when Autoplay is on
+    wheelVolume: false,    // opt-in: mouse wheel over the player changes the volume
+    shortcuts: true,       // Shift+S screenshot, Shift+L loop
+    playerButtons: true,   // screenshot and loop buttons on the player bar
     allowedChannels: {},   // { channelId: "Channel name" } = ads allowed (support creators)
     userName: "",          // optional, only for the popup greeting
   });

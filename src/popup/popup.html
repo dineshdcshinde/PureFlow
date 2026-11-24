@@ -71,11 +71,42 @@
         <button type="button" role="radio" data-speed="2.5">2.5</button>
         <button type="button" role="radio" data-speed="3">3×</button>
       </div>
+      <div class="row static"><span>Quality</span></div>
+      <div class="chips chips-6" role="radiogroup" aria-label="Video quality" id="quality-chips">
+        <button type="button" role="radio" data-quality="">Auto</button>
+        <button type="button" role="radio" data-quality="tiny">144p</button>
+        <button type="button" role="radio" data-quality="small">240p</button>
+        <button type="button" role="radio" data-quality="medium">360p</button>
+        <button type="button" role="radio" data-quality="large">480p</button>
+        <button type="button" role="radio" data-quality="hd720">720p</button>
+        <button type="button" role="radio" data-quality="hd1080">1080p</button>
+        <button type="button" role="radio" data-quality="hd1440">1440p</button>
+        <button type="button" role="radio" data-quality="hd2160">4K</button>
+        <button type="button" role="radio" data-quality="hd2880">5K</button>
+        <button type="button" role="radio" data-quality="highres">8K</button>
+      </div>
+      <small class="hint quality-note" id="quality-note" hidden></small>
+      <label class="row"><span>Play next video right away
+          <small class="hint">No waiting on a black screen between videos. Only when YouTube's Autoplay is on.</small></span>
+        <span class="switch"><input type="checkbox" data-setting="instantNext" /><span class="track"></span></span></label>
       <label class="row"><span>Skip sponsor parts
           <small class="hint">Off until you turn it on. Sends only a 4-character code (never the video) to
             <a href="https://sponsor.ajay.app/" target="_blank" rel="noopener">SponsorBlock</a>.
             Data: CC BY-NC-SA 4.0.</small></span>
         <span class="switch"><input type="checkbox" data-setting="sponsorSkip" /><span class="track"></span></span></label>
+    </section>
+
+    <section class="group" aria-labelledby="tools-title">
+      <h2 id="tools-title">Tools</h2>
+      <label class="row"><span>Screenshot and loop buttons
+          <small class="hint">On the player bar, next to the settings icon.</small></span>
+        <span class="switch"><input type="checkbox" data-setting="playerButtons" /><span class="track"></span></span></label>
+      <label class="row"><span>Keyboard shortcuts
+          <small class="hint"><kbd>Shift</kbd>+<kbd>S</kbd> screenshot · <kbd>Shift</kbd>+<kbd>L</kbd> loop a part</small></span>
+        <span class="switch"><input type="checkbox" data-setting="shortcuts" /><span class="track"></span></span></label>
+      <label class="row"><span>Volume with the mouse wheel
+          <small class="hint">Scroll over the video to turn it up or down.</small></span>
+        <span class="switch"><input type="checkbox" data-setting="wheelVolume" /><span class="track"></span></span></label>
     </section>
   </main>
 

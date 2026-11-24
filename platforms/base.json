@@ -37,6 +37,12 @@
         "content/features/speed.js",
         "content/features/sponsor.js",
         "content/features/creators.js",
+        "content/features/quality.js",
+        "content/features/autonext.js",
+        "content/features/loop.js",
+        "content/features/screenshot.js",
+        "content/features/controls.js",
+        "content/features/notices.js",
         "content/main.js"
       ],
       "css": ["styles/hide.css"],
@@ -44,7 +50,7 @@
     },
     {
       "matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
-      "js": ["inject.js"],
+      "js": ["inject.js", "bridge.js"],
       "run_at": "document_start",
       "world": "MAIN",
       "all_frames": true

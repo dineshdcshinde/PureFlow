@@ -76,7 +76,12 @@ main.paused { opacity: .4; pointer-events: none; }
   font: inherit; font-size: 12px; padding: 5px 0; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--line); background: transparent; color: var(--text);
 }
+/* Quality: up to 11 choices (Auto, 144p ... 8K). Ones the video lacks are hidden;
+   the rest wrap onto a second row when there are many (no video open: all of them). */
+.chips.chips-6 { grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); }
+.quality-note { margin: -2px 0 6px; }
 .chips button:hover { background: var(--soft); }
+kbd { font: inherit; font-size: 10.5px; padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--soft); }
 .chips button[aria-checked="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
 .chips button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
