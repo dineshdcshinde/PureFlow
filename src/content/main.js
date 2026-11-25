@@ -15,7 +15,8 @@
  *
  * Features (each in content/features/, wired up here):
  *   focus mode, default speed and quality, sponsor skip, support creators, stats,
- *   play next right away, loop, screenshot, wheel volume, shortcuts, player buttons.
+ *   play next right away, loop, screenshot, wheel volume, shortcuts, player buttons,
+ *   and the floating PureFlow button (one row of quick controls).
  *
  * Also the on/off switch for this tab: sets <html data-yas="on">, which hide.css and
  * inject.js both read, and cleans everything up when the extension is turned off.
@@ -23,7 +24,7 @@
 (() => {
   const YAS = globalThis.YAS;
   const { overlay, ads, settings, stats, focus, speed, sponsor, creators,
-    quality, autonext, loop, screenshot, controls, notices } = YAS;
+    quality, autonext, loop, screenshot, controls, notices, dock, panel } = YAS;
 
   // ---------------------------------------------------------------------------
   // Config
@@ -39,6 +40,9 @@
     backOnTitle: `${APP} is back on`,
     backOnDetail: "Cleaning up an ad from earlier, back in a sec",
     sponsorSkipped: "Sponsor skipped",
+    speed: (s) => `Speed ${s}×`,
+    focusOn: "Focus on: Shorts, comments and suggestions hidden",
+    focusOff: "Focus off: everything is back",
     screenshotSaved: "Screenshot saved to Downloads",
     screenshotFailed: "Can't take a screenshot of this video",
     volume: (v) => (v === 0 ? "Muted" : `Volume ${v}%`),
@@ -308,6 +312,7 @@
     } else if (action === "loop") {
       overlay.toast(player, loop.step(video));
       controls.showLoop(loop.status());
+      dock.refresh();
     } else if (action === "volume") {
       document.dispatchEvent(new CustomEvent("yas:cmd", { detail: JSON.stringify({ cmd: "volume", step }) }));
     }
@@ -323,6 +328,52 @@
     try {
       if (state.player) overlay.toast(state.player, TEXT.quality(JSON.parse(event.detail)));
     } catch (e) { /* bad data: ignore */ }
+    dock.refresh();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Floating PureFlow button (dock.js): what it shows, and what its taps do
+  // ---------------------------------------------------------------------------
+  const FOCUS_KEYS = ["hideShorts", "hideComments", "hideRelated", "hideEndScreens"];
+
+  function dockState() {
+    const s = state.settings;
+    const video = videoOf(state.player);
+    const watch = canAct();
+    return {
+      watch,
+      speed: watch && video.playbackRate > 0 ? video.playbackRate : s.speed || 1, // what is really playing
+      quality: s.quality || "",
+      get qualities() { return watch ? quality.available() : []; }, // asks the player: only when the menu opens
+      loop: loop.status(),
+      focus: FOCUS_KEYS.every((k) => s[k]),
+      settingsOpen: panel.isOpen(),
+    };
+  }
+
+  function onDockAction(action, value) {
+    const player = state.player;
+    if (action === "speed") {
+      speed.setSpeed(value, videoOf(player), Boolean(state.ad), { now: true }); // this video, now
+      settings.save({ speed: value }).catch(() => {});                          // and the next ones
+      if (canAct()) overlay.toast(player, TEXT.speed(value));
+    } else if (action === "quality") {
+      if (canAct()) quality.setQuality(value, Boolean(state.ad), { now: true });
+      settings.save({ quality: value }).catch(() => {});
+    } else if (action === "focus") {
+      settings.save(Object.fromEntries(FOCUS_KEYS.map((k) => [k, Boolean(value)]))).catch(() => {});
+      state.settings = { ...state.settings, ...Object.fromEntries(FOCUS_KEYS.map((k) => [k, Boolean(value)])) };
+      if (player && onWatchPage()) overlay.toast(player, value ? TEXT.focusOn : TEXT.focusOff);
+    } else if (action === "settings") {
+      panel.toggle();
+    } else {
+      onAction(action); // screenshot, loop
+    }
+  }
+
+  function updateDock() {
+    if (isEnabled() && state.settings.floatingBar) dock.start({ state: dockState, act: onDockAction });
+    else { dock.stop(); panel.close(); }
   }
 
   function updateButtons() {
@@ -345,6 +396,7 @@
     autonext.stop();
     loop.clear(); // a loop belongs to one video
     updateButtons();
+    dock.refresh();
     if (isEnabled() && state.settings.sponsorSkip) sponsor.load(currentVideoId());
   }
 
@@ -372,6 +424,7 @@
     controls.configure({ shortcuts: next.enabled && next.shortcuts, wheelVolume: next.enabled && next.wheelVolume });
     updateButtons();
     if (!next.enabled) { autonext.stop(); loop.clear(); }
+    updateDock();
     creators.setAllowed(next.allowedChannels);
     if (next.enabled && next.sponsorSkip) sponsor.load(currentVideoId());
     onPlayerClassChange(); // just switched on with an ad already playing? stop it now
@@ -418,6 +471,7 @@
     document.addEventListener("yas:quality", onQuality);
     controls.start(onAction, canAct);
     chrome.runtime.onMessage.addListener(onMessage);
+    YAS.pageMessage = (message, reply) => onMessage(message, {}, reply); // the All settings panel, on this page
     creators.start(onPlayerClassChange); // a channel stops being allowed mid-ad: stop it now
     settings.load().then(applySettings).catch(() => {});
     settings.onChange(applySettings);
@@ -445,6 +499,8 @@
     if (isOwner()) {
       notices.stop();
       controls.removeButtons(); // only the owner: a newer copy may have just added its own
+      dock.stop();
+      panel.close();
       overlay.destroy();
       creators.stop();
       focus.clear();

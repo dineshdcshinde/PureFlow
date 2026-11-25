@@ -3,11 +3,12 @@
   "private": true,
   "description": "Ad-free, distraction-free YouTube. One engine, built for Chrome, Edge and Firefox.",
   "scripts": {
-    "build": "node scripts/build.js",
+    "build": "rm -rf dist && node scripts/build.js",
     "build:chrome": "node scripts/build.js chrome",
     "build:edge": "node scripts/build.js edge",
     "build:firefox": "node scripts/build.js firefox",
-    "test": "node scripts/build.js && node tests/test.js"
+    "test": "node scripts/build.js && node tests/test.js",
+    "filters": "node scripts/filters.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0"

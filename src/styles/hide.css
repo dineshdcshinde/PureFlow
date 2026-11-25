@@ -64,7 +64,9 @@ html[data-yas="on"][data-yas-hide-related] ytd-watch-next-secondary-results-rend
 /* Hide end screens (the video cards that pop up in the last seconds) */
 html[data-yas="on"][data-yas-hide-endscreens] .ytp-ce-element,
 html[data-yas="on"][data-yas-hide-endscreens] .ytp-endscreen-content,
-html[data-yas="on"][data-yas-hide-endscreens] .html5-endscreen {
+html[data-yas="on"][data-yas-hide-endscreens] .html5-endscreen,
+/* newer player: the grid of videos shown when a video ends */
+html[data-yas="on"][data-yas-hide-endscreens] .ytp-fullscreen-grid {
   display: none !important;
 }
 

@@ -4,7 +4,8 @@
  *
  *   settings (chrome.storage.sync, follows you across your browsers):
  *     enabled, focus toggles, default speed and quality, sponsor skip, allowed channels,
- *     play next right away, wheel volume, shortcuts, player buttons
+ *     play next right away, wheel volume, shortcuts, player buttons, floating button,
+ *     ads on other websites and the sites you allowed
  *   stats (chrome.storage.local, this computer only):
  *     adsBlocked, secondsSaved
  *
@@ -26,7 +27,10 @@
     wheelVolume: false,    // opt-in: mouse wheel over the player changes the volume
     shortcuts: true,       // Shift+S screenshot, Shift+L loop
     playerButtons: true,   // screenshot and loop buttons on the player bar
+    floatingBar: true,     // the floating PureFlow button on YouTube (one row of quick controls)
     allowedChannels: {},   // { channelId: "Channel name" } = ads allowed (support creators)
+    webBlock: true,        // block ads on every other website too (EasyList)
+    allowedSites: {},      // { "site.com": true } = ads allowed on that website
     userName: "",          // optional, only for the popup greeting
   });
 
@@ -58,12 +62,14 @@
       if (Object.keys(local).length) await chrome.storage.local.set(local);
     },
 
-    /** Call `listener(newSettings)` whenever any setting changes. */
+    /** Call `listener(newSettings)` whenever any setting changes. Returns a function that stops it. */
     onChange(listener) {
-      chrome.storage.onChanged.addListener((changes, area) => {
+      const onChanged = (changes, area) => {
         const relevant = area === "sync" || (area === "local" && LOCAL_ONLY.some((k) => k in changes));
         if (relevant) settings.load().then(listener);
-      });
+      };
+      chrome.storage.onChanged.addListener(onChanged);
+      return () => chrome.storage.onChanged.removeListener?.(onChanged); // stop listening
     },
   };
 

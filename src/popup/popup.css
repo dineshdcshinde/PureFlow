@@ -31,6 +31,20 @@ body {
   color: var(--text);
   font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
+/* Inside the All settings panel the frame sets the width */
+body.in-panel { width: auto; }
+
+/* On any website other than YouTube: just one switch, "Block ads on <site>". The video
+   settings (speed, quality, focus...) only show on YouTube. */
+body.site-mode #main > section:not(#site-card),
+body.site-mode .top > .switch,
+body.site-mode #reset-stats,
+body.site-mode .footer .dot { display: none; }
+body.site-mode main.paused { opacity: 1; pointer-events: auto; }
+body.site-mode #site-card { margin-top: 4px; }
+/* The status line under "Block ads on <site>": always one line, same height, so toggling never jumps. */
+#site-count { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 16px; height: 16px; }
+#site-card .row > span:first-child { min-width: 0; }
 h1 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
 h2 { font-size: 11px; font-weight: 600; margin: 0 0 2px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 p { margin: 0; }

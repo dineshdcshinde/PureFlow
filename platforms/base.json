@@ -18,16 +18,35 @@
       "32": "icons/icon-32.png"
     }
   },
-  "permissions": ["declarativeNetRequest", "scripting", "storage"],
-  "host_permissions": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
+  "permissions": [
+    "activeTab",
+    "declarativeNetRequest",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "declarative_net_request": {
     "rule_resources": [
-      { "id": "ad_rules", "enabled": true, "path": "rules/ads.json" }
+      {
+        "id": "ad_rules",
+        "enabled": true,
+        "path": "rules/ads.json"
+      },
+      {
+        "id": "web_ads",
+        "enabled": true,
+        "path": "rules/web-ads.json"
+      }
     ]
   },
   "content_scripts": [
     {
-      "matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://m.youtube.com/*"
+      ],
       "js": [
         "brand.js",
         "content/settings.js",
@@ -43,14 +62,27 @@
         "content/features/screenshot.js",
         "content/features/controls.js",
         "content/features/notices.js",
+        "content/assets.js",
+        "popup/greeting.js",
+        "popup/popup.js",
+        "panel/panel.js",
+        "content/features/dock.js",
         "content/main.js"
       ],
-      "css": ["styles/hide.css"],
+      "css": [
+        "styles/hide.css"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["*://www.youtube.com/*", "*://m.youtube.com/*"],
-      "js": ["inject.js", "bridge.js"],
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://m.youtube.com/*"
+      ],
+      "js": [
+        "inject.js",
+        "bridge.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN",
       "all_frames": true

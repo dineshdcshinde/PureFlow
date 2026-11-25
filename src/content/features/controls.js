@@ -30,7 +30,8 @@
   };
 
   /** Typing in a box (search, comments): shortcuts must not fire. */
-  function isTyping(target) {
+  function isTyping(target, event) {
+    target = event?.composedPath?.()[0] || target; // the real box, even inside a shadow root (our panel)
     if (!target || !(target instanceof Element)) return false;
     return Boolean(target.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']"));
   }
@@ -75,7 +76,7 @@
   function onKeyDown(event) {
     if (!shortcutsOn || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
     const action = SHORTCUTS[event.code];
-    if (!action || isTyping(event.target) || !canAct()) return; // not ours: leave the key alone
+    if (!action || isTyping(event.target, event) || !canAct()) return; // not ours: leave the key alone
     event.preventDefault();
     event.stopPropagation();
     if (event.repeat) return; // holding the key down: act once, not 10 times

@@ -4,6 +4,9 @@ node_modules/
 # Build output (rebuild with: npm run build)
 dist/
 
+# Downloaded EasyList (refresh with: npm run filters -- --update)
+filters/cache/
+
 # Store upload packages
 *.zip
 *.crx

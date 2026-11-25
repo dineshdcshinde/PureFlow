@@ -39,6 +39,14 @@
       <p><strong id="time-saved">0 min</strong> <span class="muted">saved</span></p>
     </section>
 
+    <section class="group" id="site-card" hidden>
+      <label class="row">
+        <span>Block ads on <strong id="site-name">this site</strong>
+          <small class="hint" id="site-count">Ads are removed on this site</small></span>
+        <span class="switch"><input type="checkbox" id="block-site" /><span class="track"></span></span>
+      </label>
+    </section>
+
     <section class="group" id="creator-card" hidden>
       <label class="row">
         <span>Allow ads on <strong id="creator-name">this channel</strong>
@@ -98,6 +106,9 @@
 
     <section class="group" aria-labelledby="tools-title">
       <h2 id="tools-title">Tools</h2>
+      <label class="row"><span>Floating PureFlow button
+          <small class="hint">On YouTube. Tap it for speed, quality, screenshot and more in one row.</small></span>
+        <span class="switch"><input type="checkbox" data-setting="floatingBar" /><span class="track"></span></span></label>
       <label class="row"><span>Screenshot and loop buttons
           <small class="hint">On the player bar, next to the settings icon.</small></span>
         <span class="switch"><input type="checkbox" data-setting="playerButtons" /><span class="track"></span></span></label>
@@ -107,6 +118,12 @@
       <label class="row"><span>Volume with the mouse wheel
           <small class="hint">Scroll over the video to turn it up or down.</small></span>
         <span class="switch"><input type="checkbox" data-setting="wheelVolume" /><span class="track"></span></span></label>
+    </section>
+    <section class="group" aria-labelledby="web-title">
+      <h2 id="web-title">Other websites</h2>
+      <label class="row"><span>Block ads on every website
+          <small class="hint">Uses the public EasyList. Everything happens in your browser; nothing about the sites you visit is sent anywhere.</small></span>
+        <span class="switch"><input type="checkbox" data-setting="webBlock" /><span class="track"></span></span></label>
     </section>
   </main>
 

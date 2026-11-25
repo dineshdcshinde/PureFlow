@@ -67,7 +67,7 @@
       <th>Why</th>
     </tr>
     <tr>
-      <td>Your settings (on/off, focus mode, speed, quality, sponsor skip, tools, channels you allow ads on)</td>
+      <td>Your settings (on/off, focus mode, speed, quality, sponsor skip, tools, channels and websites you allow ads on, where you put the floating button)</td>
       <td>Your browser's extension storage (Chrome may sync it between your own devices if you use Chrome sync)</td>
       <td>To remember your choices</td>
     </tr>
@@ -104,10 +104,14 @@
 
   <h2>Permissions and why we need them</h2>
   <ul>
-    <li><strong>Site access (youtube.com only)</strong>: PureFlow runs only on the video site it was made for, and on no
-      other site.</li>
-    <li><strong>declarativeNetRequest</strong>: blocks requests to ad servers using Chrome's built-in engine.</li>
-    <li><strong>scripting</strong>: starts PureFlow in tabs that were already open when you installed it.</li>
+    <li><strong>Site access (all websites)</strong>: to block ads and hide empty ad boxes on every website you
+      visit, not only on YouTube. This happens inside your browser: PureFlow never reads, saves or sends the content of
+      the pages you visit. It only uses a site's name, on your computer, to pick that site's ad-box rules.</li>
+    <li><strong>declarativeNetRequest</strong>: blocks requests to ad servers using Chrome's built-in engine (on
+      YouTube, PureFlow's own list; elsewhere, the public EasyList).</li>
+    <li><strong>scripting</strong>: starts PureFlow in tabs that were already open when you installed it, and adds
+      the ad-box hiding rules to pages.</li>
+    <li><strong>activeTab</strong>: when you open the popup on a website, shows how many ads were blocked on that page.</li>
     <li><strong>storage</strong>: saves your settings and stats.</li>
   </ul>
 

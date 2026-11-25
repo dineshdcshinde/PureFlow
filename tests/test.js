@@ -1018,6 +1018,554 @@ async function testOnlySupportedQualities() {
   check("player not ready / not a video: all 11 choices shown (Auto, 144p ... 8K)", shown(doc).length === 11, JSON.stringify(shown(doc)));
 }
 
+
+/** What background.js sends for the on-page parts. */
+const fakeAssets = () => ({ html: read("popup/popup.html"), css: read("popup/popup.css"),
+  icon16: "data:image/png;base64,SIXTEEN", icon32: "data:image/png;base64,THIRTYTWO" });
+
+/** A YouTube page with PureFlow, where our closed shadow roots can be looked into. */
+async function pageWithPanel() {
+  const p = makePage();
+  const w = p.w;
+  Object.defineProperty(w, "innerWidth", { value: 1200, configurable: true });
+  Object.defineProperty(w, "innerHeight", { value: 800, configurable: true });
+  const shadows = new Map();
+  const realAttach = w.Element.prototype.attachShadow;
+  w.Element.prototype.attachShadow = function (o) { const r = realAttach.call(this, { ...o, mode: "open" }); shadows.set(this, r); return r; };
+  const asked = [];
+  w.chrome.runtime.sendMessage = (m) => {
+    asked.push(m.type);
+    if (m.type === "assets") return Promise.resolve(fakeAssets());
+    return Promise.resolve();
+  };
+  p.loadContent();
+  await sleep(30);
+  const panelRoot = () => shadows.get(p.doc.querySelector("pureflow-panel"));
+  return { ...p, shadows, asked, panelRoot };
+}
+
+async function testFloatingPanel() {
+  console.log("39. All settings panel: drawn on the page (no iframe), drags, remembers where, closes");
+  const p = await pageWithPanel();
+  const { w, doc } = p;
+  const panel = w.YAS.panel;
+  const toggle = async () => { panel.toggle(); await sleep(40); };
+
+  await toggle();
+  const host = doc.querySelector("pureflow-panel");
+  check("open: panel on the page", Boolean(host) && panel.isOpen());
+  check("no iframe (nothing a website can block or frame)", !doc.querySelector("iframe") && !p.panelRoot().querySelector("iframe"));
+  check("settings page drawn inside", Boolean(p.panelRoot().getElementById("speed-chips")) && Boolean(p.panelRoot().getElementById("greeting")));
+  check("asked the background for the page once", p.asked.filter((t) => t === "assets").length === 1);
+  check("popup.css adapted to the panel (no :root / body left)",
+    !/:root|(^|[\s,}])body[\s.{,]/.test(p.panelRoot().querySelector("style").textContent));
+  check("top right by default", host.style.left === "876px" && host.style.top === "72px", host.style.left + " " + host.style.top);
+  const img = p.panelRoot().querySelector(".brand img");
+  check("footer icon is drawn from data (no extension file a website could probe)", img?.src === "data:image/png;base64,SIXTEEN", img?.src);
+  check("top bar icon too", p.panelRoot().querySelector(".title img")?.src === "data:image/png;base64,THIRTYTWO");
+  check("short window: the settings scroll inside", p.panelRoot().querySelector(".scroll").style.maxHeight === `${800 - 72 - 36 - 12}px`);
+
+  await toggle();
+  check("toggle again: closed", !doc.querySelector("pureflow-panel"));
+  panel.open(); panel.open(); // double tap
+  await sleep(40);
+  check("opening twice quickly: still one panel", doc.querySelectorAll("pureflow-panel").length === 1);
+  check("page asked only once (kept for next time)", p.asked.filter((t) => t === "assets").length === 1);
+
+  // drag by the top bar
+  const panelHost = doc.querySelector("pureflow-panel");
+  const root = p.panelRoot();
+  const box = root.querySelector(".panel");
+  const bar = root.querySelector(".bar");
+  const ptr = (type, x, y) => {
+    const e = new w.MouseEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true });
+    e.pointerId = 1;
+    bar.dispatchEvent(e);
+  };
+  ptr("pointerdown", 900, 90);
+  check("dragging", box.classList.contains("dragging"));
+  ptr("pointermove", 500, 300);
+  ptr("pointerup", 500, 300);
+  check("dragged to the new spot", panelHost.style.left === "476px" && panelHost.style.top === "282px",
+    panelHost.style.left + " " + panelHost.style.top);
+  await sleep(10);
+  check("position remembered", JSON.stringify(w.chrome._data.local.panelPos) === JSON.stringify({ x: 476, y: 282 }),
+    JSON.stringify(w.chrome._data.local.panelPos));
+  ptr("pointerdown", 500, 300); ptr("pointermove", -400, 5000); ptr("pointerup", -400, 5000);
+  check("can't be dragged off screen", panelHost.style.left === "12px" && parseInt(panelHost.style.top) === 800 - 36 - 12,
+    panelHost.style.left + " " + panelHost.style.top);
+  bar.dispatchEvent(new w.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+  check("arrow keys move it too", panelHost.style.left === "22px", panelHost.style.left);
+
+  // typing in the panel never reaches YouTube or our shortcuts
+  const seen = [];
+  doc.addEventListener("keydown", (e) => seen.push(e.key));
+  const input = root.getElementById("name-input");
+  input.dispatchEvent(new w.KeyboardEvent("keydown", { key: "k", bubbles: true, composed: true }));
+  check("keys typed in the panel don't reach YouTube (k would pause)", !seen.includes("k"));
+
+  bar.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, composed: true }));
+  check("Esc: closed", !doc.querySelector("pureflow-panel"));
+  await toggle();
+  check("opens again where you left it", doc.querySelector("pureflow-panel").style.left === "22px");
+  p.panelRoot().querySelector(".close").click();
+  check("X button closes it", !doc.querySelector("pureflow-panel"));
+}
+
+async function testPanelPage() {
+  console.log("40. Settings in the panel work like the popup");
+  const p = await pageWithPanel();
+  const { w, doc } = p;
+  await w.chrome.storage.sync.set({ speed: 1.5 });
+  p.player.getAvailableQualityLevels = () => ["hd1080", "hd720", "auto"];
+  p.run("bridge.js");
+  w.YAS.panel.open();
+  await sleep(60);
+  const root = p.panelRoot();
+  check("1.5 selected (your saved settings)", root.querySelector('[data-speed="1.5"]').getAttribute("aria-checked") === "true");
+  check("greeting shown", /^(Good|Up late)/.test(root.getElementById("greeting").textContent));
+  check("no 'refresh this tab' note (the panel is the current code)", root.getElementById("update-notice").hidden);
+  const shown = [...root.querySelectorAll("[data-quality]")].filter((c) => !c.hidden).map((c) => c.textContent);
+  check("only this video's qualities", JSON.stringify(shown) === '["Auto","720p","1080p"]', JSON.stringify(shown));
+  root.querySelector('[data-speed="2"]').click();
+  await sleep(30);
+  check("tap 2x in the panel: video at 2x now", p.v.playbackRate === 2, p.v.playbackRate);
+  check("tap 2x in the panel: saved", w.chrome._data.sync.speed === 2);
+  const shorts = root.querySelector('[data-setting="hideShorts"]');
+  shorts.checked = true;
+  shorts.dispatchEvent(new w.Event("change", { bubbles: true }));
+  await sleep(30);
+  check("switch in the panel: saved", w.chrome._data.sync.hideShorts === true);
+  check("floating button switch is in the settings, on by default",
+    root.querySelector('[data-setting="floatingBar"]')?.checked === true);
+  w.YAS.panel.close();
+  await w.chrome.storage.sync.set({ speed: 1 });
+  await sleep(20);
+  check("closed panel stops listening (no errors after closing)", true);
+
+  // the real toolbar popup still starts by itself
+  const html = read("popup/popup.html").replace(/<script[^>]*><\/script>/g, "");
+  const dom = new JSDOM(html, { url: "chrome-extension://x/popup/popup.html", runScripts: "outside-only" });
+  dom.window.chrome = makeChrome();
+  dom.window.chrome.tabs = { query: async () => [], sendMessage: async () => ({}) };
+  ["brand.js", "content/settings.js", "popup/greeting.js", "popup/popup.js"].forEach((f) => dom.window.eval(read(f)));
+  await sleep(50);
+  check("toolbar popup works as before", /^(Good|Up late)/.test(dom.window.document.getElementById("greeting").textContent));
+  check("on YouTube popup.js only provides mount() (doesn't touch the page)", !p.doc.getElementById("greeting"));
+}
+
+async function testDock() {
+  console.log("41. Floating PureFlow button: one row for speed, quality, screenshot, loop, focus, settings");
+  const p = makePage();
+  const w = p.w, doc = p.doc;
+  Object.defineProperty(w, "innerWidth", { value: 1200, configurable: true });
+  Object.defineProperty(w, "innerHeight", { value: 800, configurable: true });
+  const shadows = [];
+  const realAttach = w.Element.prototype.attachShadow;
+  w.Element.prototype.attachShadow = function (o) { const r = realAttach.call(this, { ...o, mode: "open" }); shadows.push([this, r]); return r; };
+  w.chrome.runtime.sendMessage = (m) => Promise.resolve(m.type === "assets" ? fakeAssets() : true);
+  const cmds = listenCmds(p);
+  p.player.getAvailableQualityLevels = () => ["hd1080", "hd720", "large", "auto"];
+  p.loadContent();
+  p.run("bridge.js"); // the page-world helper that asks the player
+  await sleep(40);
+  const host = doc.querySelector("pureflow-dock");
+  check("button is on YouTube by default", Boolean(host));
+  check("bottom right by default", host.style.left === `${1200 - 44 - 24}px` && host.style.top === `${800 - 44 - 24}px`,
+    host.style.left + " " + host.style.top);
+  const root = shadows.find(([el]) => el === host)[1];
+  const $ = (s) => root.querySelector(s);
+  check("closed: just the round button", !$(".dock").classList.contains("open"));
+
+  // tap (pointer down + up without moving) opens it
+  const fab = $(".fab");
+  const ptr = (type, x, y) => {
+    const e = new w.MouseEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true });
+    e.pointerId = 1;
+    fab.dispatchEvent(e);
+  };
+  ptr("pointerdown", 1150, 750); ptr("pointerup", 1151, 750);
+  check("tap: the row opens", $(".dock").classList.contains("open") && fab.getAttribute("aria-expanded") === "true");
+  await sleep(10);
+  check("open state remembered", w.chrome._data.local.dockOpen === true);
+  const tap = (action) => $(`[data-action="${action}"]`).click();
+
+  // speed
+  p.v.playbackRate = 1;
+  check("speed shows what is playing", $(".value").textContent === "1×", $(".value").textContent);
+  tap("faster");
+  await sleep(20);
+  check("+ : 1.25×, on the video now", p.v.playbackRate === 1.25 && $(".value").textContent === "1.25×", p.v.playbackRate);
+  check("+ : remembered for the next videos", w.chrome._data.sync.speed === 1.25);
+  tap("slower"); tap("slower");
+  await sleep(20);
+  check("- - : 0.75×", p.v.playbackRate === 0.75, p.v.playbackRate);
+  p.v.playbackRate = 3;
+  p.video.dispatchEvent(new w.Event("ratechange"));
+  check("speed changed in YouTube's menu: shown", $(".value").textContent === "3×");
+  check("at 3×: + is off", $('[data-action="faster"]').disabled);
+
+  // quality: only this video's
+  const before = cmds.length;
+  check("no quality questions to the player until the menu opens", cmds.slice(before).length === 0);
+  tap("quality");
+  const choices = [...root.querySelectorAll(".menu [data-quality]")].map((b) => b.textContent);
+  check("quality menu: Auto + this video's qualities only", JSON.stringify(choices) === '["Auto","1080p","720p","480p"]', JSON.stringify(choices));
+  root.querySelector('.menu [data-quality="hd720"]').click();
+  await sleep(20);
+  check("pick 720p: sent to the player now", cmds.some((c) => c.cmd === "quality" && c.value === "hd720" && c.announce));
+  check("720p remembered and shown", w.chrome._data.sync.quality === "hd720" && $(".quality").textContent === "720p");
+  check("menu closed after picking", $(".menu").hidden);
+
+  // loop and screenshot
+  p.v.currentTime = 10;
+  tap("loop");
+  check("loop: waiting for the end (amber)", $('[data-action="loop"]').classList.contains("waiting"));
+  p.v.currentTime = 20;
+  tap("loop");
+  check("loop: on (green)", $('[data-action="loop"]').classList.contains("on"));
+  tap("loop");
+  check("loop: off", !$('[data-action="loop"]').classList.contains("on"));
+  const saved = [];
+  w.HTMLCanvasElement.prototype.getContext = () => ({ drawImage() {} });
+  w.HTMLCanvasElement.prototype.toBlob = function (cb) { cb(new w.Blob(["png"])); };
+  w.URL.createObjectURL = () => "blob:shot";
+  w.HTMLAnchorElement.prototype.click = function () { saved.push(this.download); };
+  tap("screenshot");
+  await sleep(20);
+  check("screenshot saved", saved.length === 1);
+
+  // focus: one tap for all four
+  tap("focus");
+  await sleep(20);
+  const s = w.chrome._data.sync;
+  check("focus: Shorts, comments, suggestions, end screens hidden", s.hideShorts && s.hideComments && s.hideRelated && s.hideEndScreens);
+  check("focus button lit", $('[data-action="focus"]').getAttribute("aria-pressed") === "true");
+  tap("focus");
+  await sleep(20);
+  check("focus again: all shown", !s.hideShorts && !s.hideComments && !s.hideRelated && !s.hideEndScreens);
+
+  // settings
+  tap("settings");
+  await sleep(30);
+  check("gear: All settings panel opens", Boolean(doc.querySelector("pureflow-panel")));
+  tap("settings");
+  check("gear again: closed", !doc.querySelector("pureflow-panel"));
+  tap("settings");
+  check("gear lit straight away, while the panel loads", $('[data-action="settings"]').classList.contains("on"));
+  tap("settings"); // second tap before it finished loading
+  await sleep(30);
+  check("quick double tap: stays closed", !doc.querySelector("pureflow-panel") && !$('[data-action="settings"]').classList.contains("on"));
+
+  // not a video page: video tools off
+  p.w.history.pushState({}, "", "/feed/subscriptions");
+  doc.dispatchEvent(new w.Event("yt-navigate-finish"));
+  check("home/feed: speed works, quality/screenshot/loop are off",
+    $('[data-action="quality"]').disabled && $('[data-action="screenshot"]').disabled && $('[data-action="loop"]').disabled &&
+    !$('[data-action="faster"]').disabled);
+  p.w.history.pushState({}, "", "/watch?v=abc");
+  doc.dispatchEvent(new w.Event("yt-navigate-finish"));
+
+  // drag (more than a few px) moves it, doesn't open/close
+  const wasOpen = $(".dock").classList.contains("open");
+  ptr("pointerdown", 1150, 750); ptr("pointermove", 600, 400); ptr("pointerup", 600, 400);
+  await sleep(10);
+  const down = new w.MouseEvent("pointerdown", { clientX: 10, clientY: 10, button: 0, bubbles: true, cancelable: true });
+  fab.dispatchEvent(down);
+  fab.dispatchEvent(new w.MouseEvent("pointerup", { clientX: 10, clientY: 10, bubbles: true }));
+  check("the browser's own drag-and-drop can't take over a drag", down.defaultPrevented);
+  ptr("pointerdown", 1150, 750); ptr("pointerup", 1150, 750); // that was a tap: undo it
+  check("drag: moved, row unchanged", $(".dock").classList.contains("open") === wasOpen && JSON.stringify(w.chrome._data.local.dockPos) !== undefined);
+  ptr("pointerdown", 600, 400); ptr("pointerup", 600, 400);
+  check("tap again: row closes", !$(".dock").classList.contains("open"));
+  doc.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape" }));
+
+  // full screen and pause
+  Object.defineProperty(doc, "fullscreenElement", { value: p.player, configurable: true });
+  doc.dispatchEvent(new w.Event("fullscreenchange"));
+  check("full screen: out of the way", host.style.display === "none");
+  Object.defineProperty(doc, "fullscreenElement", { value: null, configurable: true });
+  doc.dispatchEvent(new w.Event("fullscreenchange"));
+  check("back from full screen: shown", host.style.display === "");
+  await w.chrome.storage.sync.set({ floatingBar: false });
+  await sleep(20);
+  check("switched off in the popup: gone", !doc.querySelector("pureflow-dock"));
+  await w.chrome.storage.sync.set({ floatingBar: true });
+  await sleep(30);
+  check("switched back on: back", Boolean(doc.querySelector("pureflow-dock")));
+  await w.chrome.storage.sync.set({ enabled: false });
+  await sleep(20);
+  check("PureFlow paused: gone, YouTube as normal", !doc.querySelector("pureflow-dock"));
+}
+
+function testPanelManifest() {
+  console.log("42. Toolbar icon keeps the popup; websites can reach no PureFlow file");
+  const m = MANIFEST;
+  check("toolbar icon opens the popup as before", m.action.default_popup === "popup/popup.html");
+  check("permissions: activeTab (ads blocked on this page) + blocking, scripts, storage",
+    JSON.stringify(m.permissions) === JSON.stringify(["activeTab", "declarativeNetRequest", "scripting", "storage"]));
+  check("works on every website (needed to hide ad boxes everywhere)", JSON.stringify(m.host_permissions) === '["<all_urls>"]');
+  check("no PureFlow file is reachable by websites (no web_accessible_resources)", !m.web_accessible_resources);
+  check("background hands out the page and icons as data", /type !== "assets"/.test(read("background.js")) && read("background.js").includes("data:image/png;base64"));
+  check("Focus hides the new end-of-video grid too", /hide-endscreens] .ytp-fullscreen-grid/.test(read("styles/hide.css")));
+  check("floating button sits above the settings panel (its icon can close it)",
+    /z-index: 2147483647/.test(read("content/features/dock.js")) && /z-index: 2147483646/.test(read("panel/panel.js")));
+  check("floating button and panel load on YouTube", CONTENT_FILES.includes("content/features/dock.js") && CONTENT_FILES.includes("panel/panel.js"));
+}
+
+function testFilterConverter() {
+  console.log("43. EasyList converter: only what it fully understands, never YouTube");
+  const { convert, parseNetworkRule } = require(path.join(__dirname, "..", "scripts", "filters.js"));
+  const r = parseNetworkRule("||ads.example.com^$third-party,script,domain=a.com|~b.a.com");
+  check("ad server rule understood", r && r.domain === "ads.example.com" && r.condition.domainType === "thirdParty" &&
+    JSON.stringify(r.condition.resourceTypes) === '["script"]' && JSON.stringify(r.condition.initiatorDomains) === '["a.com"]' &&
+    JSON.stringify(r.condition.excludedInitiatorDomains) === '["b.a.com"]', JSON.stringify(r));
+  check("rules with options we don't support are skipped (popup, csp...)", parseNetworkRule("||x.com^$popup") === null &&
+    parseNetworkRule("||x.com^$csp=script-src 'none'") === null && parseNetworkRule("/banner/*/img^") === null);
+  check("wildcard domains are skipped", parseNetworkRule("||x.com^$domain=example.*") === null);
+  const out = convert([
+    "! comment", "||ads.one.com^", "||ads.two.com^", "||tracker.net^$third-party", "@@||ads.two.com^$script,domain=ok.com",
+    "||doubleclick.youtube.com^", "##.ad-banner", "##.sponsor-box", "news.com#@#.sponsor-box",
+    "news.com,shop.com##.top-ad", "~blog.news.com,news.com##.weird", "youtube.com##.yt-thing",
+    "site.com#?#.ad:-abp-has(span)", "site.com##+js(nobab)", "site.com###box ~ #main {top:48px;}", "@@||safe.org^$generichide",
+  ].join("\n"));
+  const blocks = out.rules.filter((x) => x.action.type === "block");
+  check("ad servers with the same options grouped in one rule",
+    blocks.some((x) => JSON.stringify(x.condition.requestDomains) === '["ads.one.com","ads.two.com"]'), JSON.stringify(blocks));
+  check("EasyList's own exceptions become allow rules that win", out.rules.some((x) => x.action.type === "allow" && x.priority > 1));
+  check("YouTube is never touched by these rules", out.rules.every((x) => x.condition.excludedInitiatorDomains.includes("youtube.com") &&
+    !x.condition.requestDomains.some((d) => d.includes("youtube"))));
+  check("box hidden everywhere", out.generic.includes(".ad-banner"));
+  check("a box some site needs is never hidden everywhere", !out.generic.includes(".sponsor-box"));
+  check("site boxes per site", out.sites["news.com"]?.includes(".top-ad") && out.sites["shop.com"]?.includes(".top-ad"));
+  check("rules with site exceptions (~) skipped", !(out.sites["news.com"] || []).includes(".weird"));
+  check("no YouTube site rules", !out.sites["youtube.com"]);
+  check("extended syntax skipped (#?#, +js, {style})", !JSON.stringify(out).includes("abp-has") &&
+    !JSON.stringify(out).includes("nobab") && !JSON.stringify(out).includes("top:48px"));
+  check("every hiding line is a plain 'selector{display:none!important}'",
+    Object.values(JSON.parse(read("filters/hide-sites.json"))).join("").split("\n")
+      .every((l) => !l || /^[^{}]+\{display:none!important\}$/.test(l)));
+  check("sites that turn generic hiding off are listed", out.noGeneric.includes("safe.org"));
+}
+
+function testFilterFiles() {
+  console.log("44. Built filter files: within Chrome's limits, valid, YouTube-free");
+  const rules = JSON.parse(read("rules/web-ads.json"));
+  const ids = new Set(rules.map((x) => x.id));
+  check("rule ids unique", ids.size === rules.length);
+  check("well under Chrome's 30,000 static rule limit", rules.length < 1000, rules.length);
+  const servers = rules.reduce((n, x) => n + x.condition.requestDomains.length, 0);
+  check("tens of thousands of ad servers covered", servers > 10000, servers);
+  check("every rule leaves YouTube to its own engine", rules.every((x) => x.condition.excludedInitiatorDomains.includes("youtube.com")));
+  check("no rule blocks a whole page (main_frame)", rules.every((x) => !(x.condition.resourceTypes || []).includes("main_frame")));
+  const css = read("filters/hide-generic.css");
+  check("generic hiding: one selector per rule (a bad one only drops itself)",
+    css.split("\n").filter((l) => l && !l.startsWith("/*") && !l.startsWith("a.google-anno{"))
+      .every((l) => l.endsWith("{display:none!important}")));
+  check("Google's ad-link words stay readable (plain text, not hidden)", css.includes("a.google-anno{color:inherit!important") &&
+    !css.includes("\na.google-anno{display:none") && css.includes("#google-anno-sa{display:none!important}"));
+  check("generic hiding has thousands of ad boxes", css.split("\n").length > 1000);
+  const sites = JSON.parse(read("filters/hide-sites.json"));
+  check("site hiding for thousands of sites", Object.keys(sites).length > 1000);
+  check("manifest has the web ruleset", MANIFEST.declarative_net_request.rule_resources.some((x) => x.id === "web_ads" && x.path === "rules/web-ads.json"));
+}
+
+/** Run background.js with a fake browser; returns what it registered and blocked. */
+async function runBackground(syncData = {}) {
+  const dom = new JSDOM("", { url: "chrome-extension://x/background.js", runScripts: "outside-only" });
+  const w = dom.window;
+  const chrome = makeChrome();
+  Object.assign(chrome._data.sync, syncData);
+  const state = { rulesets: new Set(["ad_rules", "web_ads"]), dynamic: [], registered: [], insertedCss: [], session: [], executed: [] };
+  const listeners = { message: [], changed: [] };
+  chrome.storage.onChanged = { addListener: (l) => listeners.changed.push(l) };
+  const origSet = chrome.storage.sync.set;
+  chrome.storage.sync.set = async (v) => { await origSet(v); listeners.changed.forEach((l) => l(Object.fromEntries(Object.keys(v).map((k) => [k, {}])), "sync")); };
+  chrome.runtime.onMessage = { addListener: (l) => listeners.message.push(l) };
+  chrome.runtime.onInstalled = chrome.runtime.onStartup = { addListener() {} };
+  chrome.tabs = { query: async () => [], onRemoved: { addListener() {} }, onUpdated: { addListener() {} } };
+  chrome.declarativeNetRequest = {
+    updateEnabledRulesets: async ({ enableRulesetIds = [], disableRulesetIds = [] }) => {
+      enableRulesetIds.forEach((id) => state.rulesets.add(id)); disableRulesetIds.forEach((id) => state.rulesets.delete(id));
+    },
+    updateDynamicRules: async ({ removeRuleIds = [], addRules = [] }) => {
+      state.dynamic = state.dynamic.filter((x) => !removeRuleIds.includes(x.id)).concat(addRules);
+    },
+    updateSessionRules: async ({ addRules = [] }) => { state.session.push(...addRules); },
+  };
+  chrome.scripting = {
+    getRegisteredContentScripts: async () => state.registered,
+    unregisterContentScripts: async ({ ids }) => { state.registered = state.registered.filter((x) => !ids.includes(x.id)); },
+    registerContentScripts: async (list) => { state.registered.push(...list); },
+    insertCSS: async (x) => { state.insertedCss.push(x); },
+    executeScript: async (x) => { state.executed.push(x); return []; },
+  };
+  const files = { "filters/no-generic.json": JSON.parse(read("filters/no-generic.json")), "filters/hide-sites.json": { "news.com": ".top-ad{display:none!important}\n" },
+    "rules/web-ads.json": JSON.parse(read("rules/web-ads.json")) };
+  w.fetch = async (url) => ({ json: async () => files[url.replace("chrome-extension://x/", "")], text: async () => "" });
+  w.chrome = chrome;
+  w.eval(read("background.js"));
+  await sleep(50);
+  const send = (message, sender) => new Promise((resolve) => listeners.message.forEach((l) => l(message, sender, resolve)));
+  return { state, chrome, send };
+}
+
+async function testWebBlocking() {
+  console.log("45. Other websites: blocked by default, per-site off switch, pause turns it off");
+  let b = await runBackground();
+  check("ad servers blocked on other websites", b.state.rulesets.has("web_ads"));
+  const css = b.state.registered.find((x) => x.id === "pf-web-hide");
+  check("ad boxes hidden on every site", css && css.matches[0] === "<all_urls>" && css.css[0] === "filters/hide-generic.css");
+  check("...but never on YouTube", css.excludeMatches.includes("*://*.youtube.com/*"));
+  check("...nor where EasyList says generic hiding breaks the site",
+    JSON.parse(read("filters/no-generic.json")).every((s) => css.excludeMatches.includes(`*://*.${s}/*`)));
+  const reply = await b.send({ type: "site-hide", host: "www.news.com" }, { tab: { id: 4 }, frameId: 2 });
+  await sleep(10);
+  check("site-specific boxes added for www.news.com (rules for news.com)", reply === true &&
+    b.state.insertedCss[0]?.css.includes(".top-ad") && b.state.insertedCss[0].target.tabId === 4 &&
+    b.state.insertedCss[0].target.frameIds[0] === 2);
+  const none = await b.send({ type: "site-hide", host: "plain.org" }, { tab: { id: 4 }, frameId: 0 });
+  check("site without own rules: nothing added", none === false && b.state.insertedCss.length === 1);
+
+  await b.chrome.storage.sync.set({ allowedSites: { "news.com": true } });
+  await sleep(50);
+  const allow = b.state.dynamic.find((x) => x.id === 1);
+  check("allow ads on news.com: its requests allowed", allow?.action.type === "allowAllRequests" &&
+    JSON.stringify(allow.condition.requestDomains) === '["news.com"]' && allow.priority > 2);
+  check("...and its boxes no longer hidden", b.state.registered.every((x) => x.excludeMatches.includes("*://*.news.com/*")));
+
+  await b.chrome.storage.sync.set({ enabled: false });
+  await sleep(50);
+  check("PureFlow paused: other websites back to normal",
+    !b.state.rulesets.has("web_ads") && b.state.registered.length === 0 && b.state.dynamic.length === 0);
+  await b.chrome.storage.sync.set({ enabled: true });
+  await sleep(50);
+  check("switched back on: blocking again", b.state.rulesets.has("web_ads") && b.state.registered.length === 2);
+
+  b = await runBackground({ webBlock: false });
+  check("'Block ads on every website' off: only YouTube", !b.state.rulesets.has("web_ads") && b.state.registered.length === 0);
+
+  // the page script
+  const dom = new JSDOM("", { url: "https://www.news.com/story", runScripts: "outside-only" });
+  const sent = [];
+  dom.window.chrome = { runtime: { sendMessage: (m) => { sent.push(m); return Promise.resolve(); } } };
+  dom.window.eval(read("content/web.js"));
+  dom.window.eval(read("content/web.js")); // added twice: still asks once
+  check("page asks for its site rules once", sent.length === 1 && sent[0].host === "www.news.com");
+}
+
+async function testSiteCard() {
+  console.log("46. Popup on another website: only one switch, block ads here, applied at once");
+  const b = await runBackground(); // the real background.js answers the popup
+  const reloaded = [];
+  b.chrome.tabs.reload = async (id) => { reloaded.push(id); };
+  const html = read("popup/popup.html").replace(/<script[^>]*><\/script>/g, "");
+  const open = async (url) => {
+    const dom = new JSDOM(html, { url: "chrome-extension://x/popup/popup.html", runScripts: "outside-only" });
+    const w = dom.window;
+    w.chrome = makeChrome();
+    w.chrome.storage = b.chrome.storage; // one browser: popup and background share the settings
+    w.chrome._data = b.chrome._data;
+    w.chrome.runtime.sendMessage = (m) => b.send(m, { id: "test-id", url: "chrome-extension://x/popup/popup.html" });
+    w.chrome.tabs = { query: async () => [{ id: 9, url, status: "complete" }],
+      sendMessage: async () => { throw new Error("no PureFlow page script here"); }, reload: () => {} };
+    w.chrome.declarativeNetRequest = { getMatchedRules: async ({ tabId }) => ({ rulesMatchedInfo: tabId === 9 ? new Array(23).fill({}) : [] }) };
+    ["brand.js", "content/settings.js", "popup/greeting.js", "popup/popup.js"].forEach((file) => w.eval(read(file)));
+    await sleep(80);
+    return w;
+  };
+  const w = await open("https://www.news.com/story");
+  const doc = w.document;
+  const shown = (el) => el && w.getComputedStyle(el).display !== "none" && !el.hidden;
+  check("news.com: one-switch view", doc.body.classList.contains("site-mode"));
+  check("card shown for news.com", !doc.getElementById("site-card").hidden && doc.getElementById("site-name").textContent === "news.com");
+  check("says how many ads were blocked here", /23 ads blocked on this page/.test(doc.getElementById("site-count").textContent),
+    doc.getElementById("site-count").textContent);
+  check("switch on (blocking)", doc.getElementById("block-site").checked);
+  check("no 'refresh' note on a normal website", doc.getElementById("update-notice").hidden);
+  const sw = doc.getElementById("block-site");
+  sw.checked = false;
+  sw.dispatchEvent(new w.Event("change", { bubbles: true }));
+  await sleep(80);
+  check("switch off: ads allowed on news.com (saved, synced)", b.chrome._data.sync.allowedSites?.["news.com"] === true);
+  check("...the blocker lets news.com through", b.state.dynamic.some((x) => x.id === 1 && x.condition.requestDomains.includes("news.com")));
+  check("...and the page reloads by itself (no Refresh button to press)", reloaded[0] === 9 && doc.getElementById("update-notice").hidden);
+  check("...says ads are shown here", !sw.checked && /Ads are shown on this site/.test(doc.getElementById("site-count").textContent));
+  const before = b.state.insertedCss.length;
+  sw.checked = true;
+  sw.dispatchEvent(new w.Event("change", { bubbles: true }));
+  await sleep(80);
+  check("switch on again: removed from the list", !("news.com" in b.chrome._data.sync.allowedSites));
+  const added = b.state.insertedCss.slice(before);
+  check("...ads hidden on the open page at once, in every frame, no reload",
+    added.some((x) => x.files?.[0] === "filters/hide-generic.css") && added.some((x) => x.css?.includes(".top-ad")) &&
+    added.every((x) => x.target.tabId === 9 && x.target.allFrames) && reloaded.length === 1);
+
+  check("...and ads already on the page are hidden too (in every frame)",
+    b.state.executed.some((x) => x.target.tabId === 9 && x.target.allFrames && x.func?.name === "pageHideAds"));
+  check("status line: one short line (popup never jumps)", !doc.getElementById("site-count").textContent.includes(". "));
+
+  // Ads that loaded before blocking was switched on: Google's own "display:block !important" can't win
+  const src = read("background.js");
+  const fn = src.slice(src.indexOf("function pageHideAds"), src.indexOf("/** Hide ads already on the page"));
+  const page = new JSDOM(`<body style="overflow:hidden"><p id="story">News</p>
+    <ins class="adsbygoogle" style="display:block !important"><iframe id="aswift_1"></iframe></ins>
+    <div id="slot"><iframe src="https://ads.adnet.example/x"></iframe></div><iframe id="video" src="https://player.example/v"></iframe></body>`,
+    { url: "https://news.com/", runScripts: "outside-only" });
+  page.window.eval(fn);
+  const pdoc = page.window.document;
+  const hosts = page.window.pageHideAds(null);
+  check("Google ad box hidden at once, even with its own !important",
+    pdoc.querySelector("ins.adsbygoogle").style.getPropertyValue("display") === "none" &&
+    pdoc.querySelector("ins.adsbygoogle").style.getPropertyPriority("display") === "important");
+  check("page scrolls again (vignette lock removed)", pdoc.body.style.overflow === "");
+  check("reports the page's frames", hosts.includes("ads.adnet.example") && hosts.includes("player.example"));
+  page.window.pageHideAds(["ads.adnet.example"]);
+  check("frame from an ad server hidden; the video player and the story stay",
+    pdoc.querySelector("#slot iframe").style.display === "none" && pdoc.getElementById("video").style.display === "" &&
+    pdoc.getElementById("story").style.display === "");
+
+  // The background doesn't answer (e.g. an older copy still running): the switch must still stick.
+  const w3 = await open("https://www.news.com/story");
+  const pageReloads = [];
+  w3.chrome.runtime.sendMessage = () => Promise.resolve(undefined);
+  w3.chrome.tabs.reload = (id) => pageReloads.push(id);
+  const sw3 = w3.document.getElementById("block-site");
+  sw3.checked = false;
+  sw3.dispatchEvent(new w3.Event("change", { bubbles: true }));
+  await sleep(50);
+  check("no answer from the background: still saved, and the page reloads",
+    b.chrome._data.sync.allowedSites?.["news.com"] === true && pageReloads[0] === 9);
+  sw3.checked = true;
+  sw3.dispatchEvent(new w3.Event("change", { bubbles: true }));
+  await sleep(50);
+  check("...and switching back on sticks too", !("news.com" in b.chrome._data.sync.allowedSites) && pageReloads.length === 2);
+
+  // Only the popup may flip a site: never a web page.
+  const fromPage = await Promise.race([b.send({ type: "web-site", tabId: 9, site: "news.com", block: false }, { id: "test-id", tab: { id: 9 } }), sleep(50).then(() => "ignored")]);
+  check("a web page can't switch blocking off", fromPage === "ignored" && !("news.com" in b.chrome._data.sync.allowedSites));
+
+  // 'Block ads on every website' was off: the one switch turns it on for this site
+  await b.chrome.storage.sync.set({ webBlock: false });
+  await sleep(50);
+  const w2 = await open("https://shop.example.org/");
+  const sw2 = w2.document.getElementById("block-site");
+  check("blocking off everywhere: switch shows off", !sw2.checked);
+  sw2.checked = true;
+  sw2.dispatchEvent(new w2.Event("change", { bubbles: true }));
+  await sleep(80);
+  check("...turning it on blocks ads again", b.chrome._data.sync.webBlock === true && b.state.rulesets.has("web_ads"));
+
+  // YouTube: the full settings, no site switch
+  const yt = await open("https://www.youtube.com/watch?v=abc");
+  const ydoc = yt.document;
+  check("YouTube: full settings (speed, quality, focus), no site switch",
+    !ydoc.body.classList.contains("site-mode") && ydoc.getElementById("site-card").hidden &&
+    Boolean(ydoc.getElementById("speed-chips")) && Boolean(ydoc.querySelector('[data-setting="webBlock"]')));
+  check("site view hides the video settings (CSS)", read("popup/popup.css").includes("body.site-mode #main > section:not(#site-card)"));
+  void shown;
+}
+
 function testBuilds() {
   console.log("16. Builds: one engine, right setup for each browser");
   const root = path.join(__dirname, "..", "dist");
@@ -1072,6 +1620,14 @@ function testBuilds() {
   await testQualityEdges();
   await testInterruptionsPopup();
   await testOnlySupportedQualities();
+  await testFloatingPanel();
+  await testPanelPage();
+  await testDock();
+  testPanelManifest();
+  testFilterConverter();
+  testFilterFiles();
+  await testWebBlocking();
+  await testSiteCard();
   testBuilds();
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
